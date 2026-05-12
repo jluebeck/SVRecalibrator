@@ -28,7 +28,7 @@ Use conda with strict channel priority to ensure consistent dependency resolutio
 
 conda create -n sv-analysis "python>=3.11,<=3.14.0a0"
 conda activate sv-analysis
-conda install -c bioconda biopython pysam samtools spades=4.2.0
+conda install -c bioconda biopython pysam samtools bwa spades=4.2.0
 conda install pandas numpy natsort marisa-trie
 
 conda activate sv-analysis
