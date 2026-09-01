@@ -508,7 +508,7 @@ def plot_hist(df, prefix):
 
 # ── CLI ────────────────────────────────────────────────────────────────────────
 
-def main():
+def main(args_list=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("outdir", help="batch output directory (contains one subdirectory per sample)")
     p.add_argument("--sample", nargs="+", metavar="NAME", help="restrict to these sample(s)")
@@ -524,7 +524,7 @@ def main():
         metavar="PREFIX",
         help="output prefix; produces <PREFIX>_summary.csv, <PREFIX>_venn.png, <PREFIX>_hist.png",
     )
-    args = p.parse_args()
+    args = p.parse_args(args_list)
 
     if not os.path.isdir(args.outdir):
         sys.exit(f"outdir not found: {args.outdir}")
@@ -542,3 +542,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

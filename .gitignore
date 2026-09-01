@@ -4,5 +4,10 @@
 !refine.py
 !batch_run.sh
 !summarize_homology.py
+!sv_recalibrator.py
+!environment.yml
+!pyproject.toml
+!Dockerfile
+!Apptainer.def
 !README.md
 !install.sh

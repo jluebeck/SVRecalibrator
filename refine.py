@@ -993,6 +993,8 @@ def run_scaffold(args):
         scaffs = None
         try:
             scaffs = generate_scaffolds(fq1, fq2, bp_out, args)
+            if getattr(args, "clean", False) and not getattr(args, "keep_intermediates", False):
+                shutil.rmtree(bp_out, ignore_errors=True)
         except subprocess.TimeoutExpired:
             msg = f"breakpoint {idx + 1}: SPAdes exceeded the time limit ({args.spades_timeout:.4g}h) and was killed — skipping."
             print(msg)
@@ -1226,7 +1228,7 @@ def run_scaffold(args):
     print(f"Augmented scaffold predictions written to {args.out_table}")
     return out
 
-def main():
+def main(args_list=None):
     p = argparse.ArgumentParser(
         description="SV split read analysis OR scaffold reconstruction"
     )
@@ -1281,8 +1283,18 @@ def main():
         metavar="HOURS",
         help="time limit for each SPAdes run in hours; 0 = no limit (default: 2.0)",
     )
+    p.add_argument(
+        "--clean",
+        action="store_true",
+        help="clean up intermediate SPAdes build directories and FASTQ files after processing",
+    )
+    p.add_argument(
+        "--keep-intermediates",
+        action="store_true",
+        help="preserve intermediate SPAdes directories and FASTQ files (overrides --clean)",
+    )
 
-    args = p.parse_args()
+    args = p.parse_args(args_list)
     args.out_table = args.out_table + ".tsv"
 
     if args.mode == "split":
@@ -1326,5 +1338,12 @@ def main():
             )
             final.to_csv(args.out_table, sep="\t", index=False)
 
+    if args.clean and not args.keep_intermediates:
+        if os.path.exists(args.outdir):
+            shutil.rmtree(args.outdir, ignore_errors=True)
+        if os.path.exists("fastq"):
+            shutil.rmtree("fastq", ignore_errors=True)
+
 if __name__ == "__main__":
     main()
+

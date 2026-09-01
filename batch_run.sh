@@ -34,6 +34,8 @@
 #       --spades-timeout HOURS  Per-breakpoint SPAdes time limit in hours; 0 = no limit (default: 2)
 #       --strict          Pass --strict to collect.py (keep only reads fully within region)
 #       --sample NAME     Run a single named sample instead of all
+#       --clean           Clean intermediate FASTQ and SPAdes directories after run
+#       --keep-intermediates Preserve intermediate directories (overrides --clean)
 #   -h, --help            Show this help and exit
 #
 # Example:
@@ -62,6 +64,8 @@ THREADS=16
 SPADES_TIMEOUT=2
 STRICT=""
 SINGLE_SAMPLE=""
+CLEAN=""
+KEEP_INTERMEDIATES=""
 
 # ── argument parsing ───────────────────────────────────────────────────────────
 usage() {
@@ -81,6 +85,8 @@ while [[ $# -gt 0 ]]; do
         --spades-timeout) SPADES_TIMEOUT="$2"; shift 2 ;;
         --strict)       STRICT="--strict"; shift ;;
         --sample)       SINGLE_SAMPLE="$2"; shift 2 ;;
+        --clean)        CLEAN="true"; shift ;;
+        --keep-intermediates) KEEP_INTERMEDIATES="true"; shift ;;
         -h|--help)      usage 0 ;;
         *) echo "Unknown option: $1" >&2; usage 1 ;;
     esac
@@ -205,6 +211,8 @@ run_sample() {
         --spades-timeout "$SPADES_TIMEOUT"
     )
     [[ -n "$FASTA" ]] && REFINE_ARGS+=(--fasta "$FASTA")
+    [[ "$CLEAN" == "true" ]] && REFINE_ARGS+=(--clean)
+    [[ "$KEEP_INTERMEDIATES" == "true" ]] && REFINE_ARGS+=(--keep-intermediates)
 
     # refine.py resolves FASTQ paths as ./fastq/ relative to CWD; must match
     # where collect.py wrote them (OUT_DIR)
@@ -218,6 +226,10 @@ run_sample() {
         return 1
     fi
     popd > /dev/null
+
+    if [[ "$CLEAN" == "true" && "$KEEP_INTERMEDIATES" != "true" ]]; then
+        rm -rf "${OUT_DIR}/fastq" "${SPADES_DIR}" "${OUT_DIR}/sv_summaries"
+    fi
 
     touch "$DONE_FLAG"
     log "$SAMPLE: done → ${OUT_TABLE_STEM}.tsv"
