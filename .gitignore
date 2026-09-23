@@ -11,3 +11,9 @@
 !Apptainer.def
 !README.md
 !install.sh
+!analysis/
+!analysis/README.md
+!analysis/consolidate_delly.py
+!analysis/analyze_delly_concordance.py
+!analysis/tests/
+!analysis/tests/test_consolidate_delly.py
