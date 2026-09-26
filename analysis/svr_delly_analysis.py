@@ -262,29 +262,38 @@ def main(args_list=None):
     L.append(f"  SVRecalibrator valid (sc or sp populated)     : {int(svr_valid.sum())}")
     L.append("")
     L.append("Statistics (comparable SVs only, unless noted):")
-    L.append(f"  1. AA and delly both valid                    : {n_both} "
+    L.append(f"  1. AA & delly both valid                         : {n_both} "
              f"({pct(n_both, int(comparable.sum()))} of comparable)")
-    L.append(f"  2. AA/delly junction+length match (any class) : {int(m_overall.sum())} / {n_both} "
+    aa_comp_valid = both_valid
+    n_aa_comp = int(aa_comp_valid.sum())
+    n_aa_blunt = int(((aa_cls == "blunt") & aa_comp_valid).sum())
+    n_aa_hom = int(((aa_cls == "homology") & aa_comp_valid).sum())
+    n_aa_ins = int(((aa_cls == "insertion") & aa_comp_valid).sum())
+    L.append(f"     AA-only classes (AA & delly both valid, n={n_aa_comp}): "
+             f"blunt={n_aa_blunt} ({pct(n_aa_blunt, n_aa_comp)}), "
+             f"homology={n_aa_hom} ({pct(n_aa_hom, n_aa_comp)}), "
+             f"insertion={n_aa_ins} ({pct(n_aa_ins, n_aa_comp)})")
+    L.append(f"  2. AA/delly junction & length match (any class)  : {int(m_overall.sum())} / {n_both} "
              f"({pct(int(m_overall.sum()), n_both)} of both-valid)")
-    L.append(f"  3. AA/delly homology+length match             : {int(m_hom.sum())} / {n_both} "
-             f"({pct(int(m_hom.sum()), n_both)})")
-    L.append(f"  4. AA/delly insertion+length match            : {int(m_ins.sum())} / {n_both} "
-             f"({pct(int(m_ins.sum()), n_both)})")
-    L.append(f"  5. Both detect exact ligation (blunt)         : {int(m_blunt.sum())} / {n_both} "
-             f"({pct(int(m_blunt.sum()), n_both)})")
+    L.append(f"  3. AA/delly homology & length match              : {int(m_hom.sum())} / {n_aa_hom} "
+             f"({pct(int(m_hom.sum()), n_aa_hom)} of both-valid AA homology)")
+    L.append(f"  4. AA/delly insertion & length match             : {int(m_ins.sum())} / {n_aa_ins} "
+             f"({pct(int(m_ins.sum()), n_aa_ins)} of both-valid AA insertion)")
+    L.append(f"  5. Both detect exact ligation (blunt)            : {int(m_blunt.sum())} / {n_aa_blunt} "
+             f"({pct(int(m_blunt.sum()), n_aa_blunt)} of both-valid AA blunt)")
     L.append("  6. Same as 2-5 but break positions match exactly (ends_swapped-aware):")
-    L.append(f"     2'. overall match + exact positions        : {int(m_overall_pos.sum())}")
-    L.append(f"     3'. homology match + exact positions       : {int(m_hom_pos.sum())}")
-    L.append(f"     4'. insertion match + exact positions      : {int(m_ins_pos.sum())}")
-    L.append(f"     5'. blunt match + exact positions          : {int(m_blunt_pos.sum())}")
+    L.append(f"     2'. overall match (matching bp positions)            : {int(m_overall_pos.sum())}")
+    L.append(f"     3'. homology match & matching bp end positions       : {int(m_hom_pos.sum())}")
+    L.append(f"     4'. insertion match & matching bp end positions      : {int(m_ins_pos.sum())}")
+    L.append(f"     5'. blunt match & matching bp end positions          : {int(m_blunt_pos.sum())}")
     L.append(f"  7. Delly valid but SVRecalibrator invalid (all SVs): {n_delly_no_svr}")
     for idx in part7:
         L.append(f"       {compact(df.loc[idx], idx)}")
     L.append("")
     L.append("Histogram Inputs:")
-    sc_sp_both = int((sc_len.notna() & sp_len.notna()).sum())
+    sc_sp_both = int((sc_len.notna() | sp_len.notna()).sum())
     sc_sp_disagree = int((sc_len.notna() & sp_len.notna() & (sc_len != sp_len)).sum())
-    L.append(f"  SVR rows with both sc+sp results: {sc_sp_both}, "
+    L.append(f"  SVR rows with valid sc and/or sp results: {sc_sp_both-sc_sp_disagree}, "
              f"length disagreement (excluded): {sc_sp_disagree}")
 
     report = "\n".join(L)
