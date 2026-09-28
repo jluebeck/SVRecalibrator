@@ -16,3 +16,6 @@
 !analysis/*.md
 !analysis/tests/
 !analysis/tests/*.py
+!analysis/turner2017/
+!analysis/turner2017/*.md
+!analysis/turner2017/*.tar.gz

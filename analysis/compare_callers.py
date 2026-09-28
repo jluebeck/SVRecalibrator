@@ -21,10 +21,15 @@ Junction length is signed: homology > 0, blunt 0, insertion < 0. Per tool:
 Caller outcomes per SV: junction class, 'sv_called_no_junction', or 'sv_not_called'.
 The main comparison is restricted to SVs identified (called at all) by every caller.
 All FILTER values are retained by default; --pass-only restricts every caller to PASS.
+Inputs are either directories or per-tool tarballs built by bundle_caller_outputs.py
+(--bundle DIR; the newest tarball per tool is used, default DIR turner2017/ next to
+this script).
 """
 import argparse
 import csv
 import json
+import tarfile
+import tempfile
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -36,6 +41,7 @@ from consolidate_delly import write_csv
 from delly_junctions import make_aligner, reconstruct
 
 CALLERS = ['delly', 'svaba', 'gridss']
+BUNDLE_DIR = Path(__file__).resolve().parent / 'turner2017'
 LABELS = {'aa': 'AA', 'svr': 'SVRecalibrator', 'delly': 'Delly2 (reconstructed)',
           'svaba': 'SvABA', 'gridss': 'GRIDSS2'}
 COLORS = {'aa': '#D65F5F', 'svr': '#4878CF', 'delly': '#6ACC65', 'svaba': '#B47CC7', 'gridss': '#C4AD66'}
@@ -281,9 +287,36 @@ def plot_classes(summary, callers, prefix, title):
     plt.close(fig)
 
 
+# bundle tool name -> compare_callers input argument
+BUNDLE_TOOLS = {'svr': 'sv_dir', 'delly2': 'delly', 'svaba': 'svaba', 'gridss2': 'gridss'}
+
+
+def use_bundle(args, workdir):
+    """Extract the newest tarball per tool from args.bundle and point the input arguments at them.
+
+    Tools without a tarball are skipped (as if their directory was not given);
+    returns the tarball names used.
+    """
+    used = []
+    for tool, attr in BUNDLE_TOOLS.items():
+        tarballs = sorted(Path(args.bundle).glob(f'*_{tool}_*.tar.gz'))
+        if not tarballs:
+            setattr(args, attr, None)
+            continue
+        with tarfile.open(tarballs[-1]) as tar:
+            tar.extractall(workdir, filter='data')
+        setattr(args, attr, Path(workdir) / tool)
+        used.append(tarballs[-1].name)
+    if args.sv_dir is None:
+        raise SystemExit(f'No SVRecalibrator (svr) tarball in {args.bundle}')
+    return used
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('sv_dir', type=Path, help='SVRecalibrator batch output directory')
+    parser.add_argument('sv_dir', type=Path, nargs='?', help='SVRecalibrator batch output directory')
+    parser.add_argument('--bundle', type=Path, nargs='?', const=BUNDLE_DIR,
+                        help='Read inputs from the per-tool tarballs in this directory (default: turner2017/)')
     parser.add_argument('-f', '--fasta', type=Path, required=True, help='Reference FASTA (for Delly reconstruction)')
     parser.add_argument('-o', '--outdir', type=Path, required=True)
     parser.add_argument('--delly', type=Path, help='Directory of <sample>.vcf[.gz] Delly files')
@@ -295,13 +328,22 @@ def main():
     parser.add_argument('--all-samples', action='store_true',
                         help='Plot all samples; by default only samples with every caller VCF present')
     args = parser.parse_args()
-    rows, inventory, callers = compare(args)
+    if args.bundle:
+        with tempfile.TemporaryDirectory() as workdir:
+            inputs = use_bundle(args, workdir)
+            rows, inventory, callers = compare(args)
+    elif args.sv_dir:
+        inputs = str(args.sv_dir)
+        rows, inventory, callers = compare(args)
+    else:
+        parser.error('give SV_DIR (with caller directories) or --bundle')
     args.outdir.mkdir(parents=True, exist_ok=True)
     complete = {i['sample_id'] for i in inventory if all(i[f'{c}_vcf'] for c in callers)}
     in_samples = rows if args.all_samples else [r for r in rows if r['sample_id'] in complete]
     scopes = {'identified_by_all_callers': [r for r in in_samples if r['identified_by_all_callers']],
               'all_rows': in_samples}
-    summary = dict(window_bp=args.window, pass_only=args.pass_only, svaba_vcf=args.svaba_vcf,
+    summary = dict(inputs=inputs,
+                   window_bp=args.window, pass_only=args.pass_only, svaba_vcf=args.svaba_vcf,
                    samples_with_all_callers=len(complete), samples_total=len(inventory))
     suffix = ', PASS only' if args.pass_only else ''
     for name, subset in scopes.items():

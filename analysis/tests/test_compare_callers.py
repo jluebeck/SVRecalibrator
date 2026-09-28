@@ -1,12 +1,16 @@
+import argparse
+import gzip
 import random
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import pysam
 
+import bundle_caller_outputs
 from caller_vcfs import parse_bnd_alt, read_gridss, read_svaba, signed_length
-from compare_callers import svr_length
+from compare_callers import svr_length, use_bundle
 from delly_junctions import reconstruct, rev_comp
 
 HEADER = '#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tS\n'
@@ -60,6 +64,39 @@ class ParserTests(unittest.TestCase):
             self.assertEqual((calls[0]['junction_len'], calls[0]['junction_seq']), (-1, 'T'))
             self.assertIsNone(calls[1]['junction_len'])
 
+
+class BundleTests(unittest.TestCase):
+    def test_bundle_round_trip(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            (tmp / 'svr/S1').mkdir(parents=True)
+            (tmp / 'svr/S1/final_augmented.tsv').write_text('break_chrom1\n')
+            (tmp / 'delly').mkdir()
+            (tmp / 'delly/S1.vcf').write_text(HEADER)
+            (tmp / 'svaba/S1').mkdir(parents=True)
+            (tmp / 'svaba/S1/S1.svaba.unfiltered.sv.vcf').write_text(HEADER)
+            (tmp / 'gridss').mkdir()
+            with gzip.open(tmp / 'gridss/S1.vcf.gz', 'wt') as handle:
+                handle.write(HEADER)
+            out = tmp / 'out'
+            out.mkdir()
+            (out / 'turner2017_svaba_2000-01-01.tar.gz').write_text('old')
+            sources = dict(svr='svr', delly2='delly', svaba='svaba', gridss2='gridss')
+            for tool, source in sources.items():
+                argv = ['bundle', tool, str(tmp / source), '-o', str(out)]
+                with mock.patch('sys.argv', argv), mock.patch('builtins.print'):
+                    bundle_caller_outputs.main()
+            bundles = sorted(p.name.split('_')[1] for p in out.glob('*.tar.gz'))
+            self.assertEqual(bundles, sorted(sources))  # older svaba bundle replaced
+
+            args = argparse.Namespace(bundle=out, sv_dir=None)
+            used = use_bundle(args, tmp / 'extract')
+            self.assertEqual(len(used), 4)
+            self.assertTrue((args.sv_dir / 'S1/final_augmented.tsv').exists())
+            self.assertTrue((args.delly / 'S1.vcf').exists())
+            self.assertTrue((args.svaba / 'S1/S1.svaba.unfiltered.sv.vcf').exists())
+            with gzip.open(args.gridss / 'S1.vcf.gz', 'rt') as handle:
+                self.assertEqual(handle.read(), HEADER)
 
 class DellyReconstructionTests(unittest.TestCase):
     @classmethod
