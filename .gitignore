@@ -13,6 +13,7 @@
 !install.sh
 !analysis/
 !analysis/README.md
+!analysis/svr_delly_analysis.py
 !analysis/consolidate_delly.py
 !analysis/analyze_delly_concordance.py
 !analysis/tests/
